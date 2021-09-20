@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 import locale
 import sys
-from os import path
+from os import path, environ
 
 directory, file = path.split(__file__)
 directory       = path.expanduser(directory)
 directory       = path.abspath(directory)
 
 sys.path.append(directory)
+
+environ['PWNLIB_NOTERM'] = '1'
 
 # warn if the user has different encoding than utf-8
 encoding = locale.getpreferredencoding()
