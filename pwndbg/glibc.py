@@ -197,4 +197,4 @@ def check_safe_linking() -> bool:
     - https://lanph3re.blogspot.com/2020/08/blog-post.html
     - https://research.checkpoint.com/2020/safe-linking-eliminating-a-20-year-old-malloc-exploit-primitive/
     """
-    return (get_version() >= (2, 32) or safe_lnk) and safe_lnk is not False  # type: ignore[return-value]
+    return (get_version() >= (2, 32) or safe_lnk.value) and safe_lnk.value is not False
