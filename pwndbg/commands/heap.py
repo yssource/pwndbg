@@ -11,6 +11,7 @@ from tabulate import tabulate
 
 import pwndbg
 import pwndbg.aglib.heap
+import pwndbg.aglib.heap.jemalloc as jemalloc
 import pwndbg.aglib.memory
 import pwndbg.aglib.proc
 import pwndbg.aglib.typeinfo
@@ -1569,3 +1570,76 @@ def heap_config(filter_pattern: str) -> None:
             "Some config values (e.g. main_arena) will be used only when resolve-heap-via-heuristic is `auto` or `force`"
         )
     )
+
+
+# Jemalloc
+
+parser = argparse.ArgumentParser(
+    description="Returns extent information for pointer address allocated by jemalloc"
+)
+parser.add_argument("addr", type=int, help="Address of the allocated memory location")
+
+
+@pwndbg.commands.ArgparsedCommand(parser, category=CommandCategory.HEAP)
+def jemalloc_find_extent(addr) -> None:
+    print(C.banner("Jemalloc find extent"))
+    print("This command was tested only for jemalloc 5.3.0 and does not support lower versions")
+    print()
+
+    addr = int(addr)
+
+    rtree = jemalloc.RTree.get_rtree()
+    extent = rtree.lookup_hard(addr)
+
+    # print pointer address first, then extent address then extent information
+    print(f"Pointer Address: {hex(addr)}")
+    print(f"Extent Address: {hex(extent.extent_address)}")
+    print()
+
+    jemalloc_extent_info(extent.extent_address, header=False)
+
+
+parser = argparse.ArgumentParser(description="Prints extent information for the given address")
+parser.add_argument("addr", type=int, help="Address of the extent metadata")
+parser.add_argument(
+    "-v", "--verbose", action="store_true", help="Print all chunk fields, even unused ones."
+)
+
+
+@pwndbg.commands.ArgparsedCommand(parser, category=CommandCategory.HEAP)
+def jemalloc_extent_info(addr, verbose=False, header=True) -> None:
+    if header:
+        print(C.banner("Jemalloc extent info"))
+        print("This command was tested only for jemalloc 5.3.0 and does not support lower versions")
+        print()
+
+    extent = jemalloc.Extent(int(addr))
+
+    print(f"Allocated Address: {hex(extent.allocated_address)}")
+    print(f"Extent Address: {hex(extent.extent_address)}")
+
+    print(f"Size: {hex(extent.size)}")
+    print(f"Small class: {extent.has_slab}")
+
+    print(f"State: {extent.state_name}")
+
+    if verbose:
+        for bit, val in extent.bitfields.items():
+            print(bit, val)
+
+
+parser = argparse.ArgumentParser(description="Prints all extents information")
+
+
+@pwndbg.commands.ArgparsedCommand(parser, category=CommandCategory.HEAP)
+def jemalloc_heap() -> None:
+    print(C.banner("Jemalloc heap"))
+    print("This command was tested only for jemalloc 5.3.0 and does not support lower versions")
+    print()
+
+    rtree = jemalloc.RTree.get_rtree()
+    extents = rtree.extents
+    for extent in extents:
+        # TODO: refactor so not create copies
+        jemalloc_extent_info(extent.extent_address, header=False)
+        print()
