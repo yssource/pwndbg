@@ -21,10 +21,6 @@ GO              =	   go
 SOURCES_GO      =	   $(wildcard *.go)
 COMPILED_GO     =	   $(SOURCES_GO:.go=.x86) $(SOURCES_GO:.go=.x64)
 
-ifndef JEMALLOC_PATH
-JEMALLOC_PATH = /usr/local/lib/libjemalloc.a
-endif
-
 ifeq ($(TARGET), x86)
 CFLAGS		  +=	  -m32
 endif
@@ -101,13 +97,13 @@ heap_jemalloc_extent_info.out: heap_jemalloc_extent_info.c
 	@echo "[+] Building heap_jemalloc_extent_info.out"
 	${CC} -g -O0 -Wno-nonnull -Wno-unused-result \
 	-o heap_jemalloc_extent_info.out heap_jemalloc_extent_info.c \
-	-lpthread ${JEMALLOC_PATH} -lm -lstdc++ -pthread -ldl
+	-Wl,-Bstatic -ljemalloc -Wl,-Bdynamic -lpthread -lm -lstdc++ -pthread -ldl
 
 heap_jemalloc_heap.out: heap_jemalloc_heap.c
 	@echo "[+] Building heap_jemalloc_heap.out"
 	${CC} -g -O0 -Wno-nonnull -Wno-unused-result \
 	-o heap_jemalloc_heap.out heap_jemalloc_heap.c \
-	-lpthread ${JEMALLOC_PATH} \-lm -lstdc++ -pthread -ldl
+	-Wl,-Bstatic -ljemalloc -Wl,-Bdynamic -lpthread -lm -lstdc++ -pthread -ldl
 
 
 multiple_threads.out: multiple_threads.c
