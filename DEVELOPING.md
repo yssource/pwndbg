@@ -65,7 +65,11 @@ To invoke cross-architecture tests, use `./qemu-tests.sh`, and to run unit tests
 
 ## Writing Tests
 
-Each test is a Python function that runs inside of an isolated GDB session. Using a [`pytest`](https://docs.pytest.org/en/latest/) fixture at the beginning of each test, GDB will attach to a [`binary`](tests/gdb-tests/conftest.py) or connect to a [`QEMU instance`](tests/qemu-tests/conftest.py). Each test runs some commands and uses Python `assert` statements to verify correctness. We can access `pwndbg` library code like `pwndbg.gdblib.regs.rsp` as well as execute GDB commands with `gdb.execute()`.
+Each test is a Python function that runs inside of an isolated GDB session. 
+Using a [`pytest`](https://docs.pytest.org/en/latest/) fixture at the beginning of each test, 
+GDB will attach to a [`binary`](tests/gdb-tests/conftest.py) or connect to a [`QEMU instance`](tests/qemu-tests/conftest.py). 
+Each test runs some commands and uses Python `assert` statements to verify correctness. 
+We can access `pwndbg` library code like `pwndbg.gdblib.regs.rsp` as well as execute GDB commands with `gdb.execute()`.
 
 We can take a look at [`tests/gdb-tests/tests/test_symbol.py`](tests/gdb-tests/tests/test_symbol.py) for an example of a
 simple test. Looking at a simplified version of the top-level code, we have this:
@@ -85,10 +89,10 @@ Here's a small snippet of the actual test:
 ```python
 def test_hexdump(start_binary):
     start_binary(BINARY)
-    pwndbg.gdblib.config.hexdump_group_width = -1
+    pwndbg.config.hexdump_group_width = -1
 
     gdb.execute("set hexdump-byte-separator")
-    stack_addr = pwndbg.gdblib.regs.rsp - 0x100
+    stack_addr = pwndbg.aglib.regs.rsp - 0x100
 ```
 
 `pytest` will run any function that starts with `test_` as a new test, so there is no need to register your new test anywhere. The `start_binary` argument is a function that will run the binary you give it, and it will set some common options before starting the binary. Using `start_binary` is recommended if you don't need any additional customization to GDB settings before starting the binary, but if you do it's fine to not use it.
@@ -153,23 +157,23 @@ def my_command(arg: str) -> None:
     print(f"Argument is {arg}")
 ```
 
-In addition, you need to import this file in the `load_commands` function in `pwndbg/commands/__init__.py`. After this, running `my_command foo` in GDB will print out "Argument is foo".
+In addition, you need to import this file in the `load_commands` function in `pwndbg/commands/__init__.py`. After this, running `my_command foo` in GDB or LLDB will print out "Argument is foo".
 
 # Adding a Configuration Option
 
 ```python
-import pwndbg.gdblib.config
+import pwndbg
 
-pwndbg.gdblib.config.add_param("config-name", False, "example configuration option")
+pwndbg.config.add_param("config-name", False, "example configuration option")
 ```
 
-`pwndbg.gdblib.config.config_name` will now refer to the value of the configuration option, and it will default to `False` if not set.
+`pwndbg.config.config_name` will now refer to the value of the configuration option, and it will default to `False` if not set.
 
-## Configuration Docstrings
+## Configuration Docstrings (GDB)
 
 TODO: There are many places GDB shows docstrings, and they show up slightly differently in each place, we should give examples of this
 
-* When using `pwndbg.gdblib.config.add_param` to add a new config, there are a few things to keep in mind:
+* When using `pwndbg.config.add_param` to add a new config, there are a few things to keep in mind:
   * For the `set_show_doc` parameter, it is best to use a noun phrase like "the value of something" to ensure that the output is grammatically correct.
   * For the `help_docstring` parameter, you can use the output of `help set follow-fork-mode` as a guide for formatting the documentation string if the config is an enum type.
   * For the `param_class` parameter
@@ -193,33 +197,103 @@ Feel free to update the list below!
 
 * If you want to play with pwndbg functions under GDB, you can always use GDB's `pi` which launches python interpreter or just `py <some python line>`.
 
-* If there is possibility, don't use `gdb.execute` as this requires us to parse the string and so on; there are some cases in which there is no other choice. Most of the time we try to wrap GDB's API to our own/easier API.
+* If you want to do the same in LLDB, you should type `lldb`, followed by `script`, which brings up an interactive Python REPL. Don't forget to `import pwndbg`!
 
-* We have our own `pwndbg.config.Parameter` (which extends `gdb.Parameter`) - all of our parameters can be seen using `config` or `theme` commands.
+* Do not access debugger-specific functionality - eg. anything that uses the `gdb`, `lldb`, or `gdblib` modules - from outside the proper module in `pwndbg.dbg`.
 
-* The dashboard/display/context we are displaying is done by `pwndbg/commands/context.py` which is invoked through GDB's prompt hook (which we defined in `pwndbg/prompt.py` as `prompt_hook_on_stop`).
+* Use `aglib` instead of `gdblib`, as the latter is [in the process of being removed](https://github.com/pwndbg/pwndbg/issues/2489). Both modules should have nearly identical interfaces, so doing this should be a matter of typing `pwndbg.aglib.X` instead of `pwndbg.gdblib.X`. Ideally, an issue should be opened if there is any functionality present in `gdblib` that's missing from `aglib`.
 
-* We change a bit GDB settings - this can be seen in `pwndbg/__init__.py` - there are also imports for all pwndbg submodules
+* We have our own `pwndbg.config.Parameter` - all of our parameters can be seen using `config` or `theme` commands.
 
-* We have a wrapper for GDB's events in `pwndbg/events.py` - thx to that we can e.g. invoke something based upon some event
+* The dashboard/display/context we are displaying is done by `pwndbg/commands/context.py` which is invoked through GDB's and LLDB's prompt hook, which are defined, respectively, in `pwndbg/gdblib/prompt.py` as `prompt_hook_on_stop`, and in `pwndb/dbg/lldb/hooks.py` as `prompt_hook`.
+
+* We change a bit GDB settings - this can be seen in `pwndbg/dbg/gdb.py` under `GDB.setup` - there are also imports for all pwndbg submodules.
+
+* Pwndbg has its own event system, and thanks to it we can set up code to be invoked in response to them. The event types and the conditions in which they occurr are defined and documented in the `EventType` enum, and functions are registered to be called on events with the `@pwndbg.dbg.event_handler` decorator. Both the enum and the decorator are documented in `pwndbg/dbg/__init__.py`.
 
 * We have a caching mechanism (["memoization"](https://en.wikipedia.org/wiki/Memoization)) which we use through Python's decorators - those are defined in `pwndbg/lib/cache.py` - just check its usages
 
 * To block a function before the first prompt was displayed use the `pwndbg.decorators.only_after_first_prompt` decorator.
 
-* Memory accesses should be done through `pwndbg/memory.py` functions
+* Memory accesses should be done through `pwndbg/aglib/memory.py` functions.
 
-* Process properties can be retrieved thx to `pwndbg/gdblib/proc.py` - e.g. using `pwndbg.gdblib.proc.pid` will give us current process pid
+* Process properties can be retrieved thanks to `pwndbg/aglib/proc.py` - e.g. using `pwndbg.aglib.proc.pid` will give us current process pid
+
 
 * We have a wrapper for handling exceptions that are thrown by commands - defined in `pwndbg/exception.py` - current approach seems to work fine - by using `set exception-verbose on` - we get a stacktrace. If we want to debug stuff we can always do `set exception-debugger on`.
 
-* Some of pwndbg's functionality - e.g. memory fetching - require us to have an instance of proper `gdb.Type` - the problem with that is that there is no way to define our own types - we have to ask gdb if it detected particular type in this particular binary (that sucks). We do it in `pwndbg/typeinfo.py` and it works most of the time. The known bug with that is that it might not work properly for Golang binaries compiled with debugging symbols.
+* Some of pwndbg's functionality require us to have an instance of `pwndbg.dbg.Value` - the problem with that is that there is no way to define our own types in either GDB or LLDB - we have to ask the debugger if it detected a particular type in this particular binary (that sucks). We do that in `pwndbg/aglib/typeinfo.py` and it works most of the time. The known bug with that is that it might not work properly for Golang binaries compiled with debugging symbols.
 
-* If you want to use `gdb.parse_and_eval("a_function_name()")` or something similar that call a function, please remember this might cause another thread to continue execution without `set scheduler-locking on`. If you didn't expect that, you should use `parse_and_eval_with_scheduler_lock` from `pwndbg.gdblib.scheduler` instead.
+# Support for Multiple Debuggers
 
+Pwndbg is an tool that supports multiple debuggers, and so using debugger-specific functionality
+outside of `pwndbg.dbg.X` is generally discouraged, with one imporant caveat, that we will get into
+later. When adding code to Pwndbg, one must be careful with the functionality being used.
 
+## The Debugger API
 
+Our support for multiple debuggers is primarily achieved through use of the Debugger API, found
+under `pwndbg/dbg/`, which defines a terse set of debugging primitives that can then be built upon
+by the rest of Pwndbg. It comprises two parts: the interface, and the implementations. The interface
+contains the abstract classes and the types that lay out the "shape" of the functionality that may
+be used by the rest of Pwndbg, and the implementations, well, _implement_ the interface on top of each
+supported debugger.
 
+As a matter of clarity, it makes sense to think of the Debugger API as a debugger-agnostic version
+of the `lldb` and `gdb` Python modules. Compared to both modules, it is much closer in spirit to
+`lldb` than to `gdb`.
+
+It is important to note that a lot of care must be exercised when adding things to the Debugger API,
+as one must always add implementations for all supported debuggers of whatever new functionality is
+being added, even if only to properly gate off debuggers in which the functionality is not supported.
+Additionally, it is important to keep the Debugger API interfaces as terse as possible in order to
+reduce code duplication. As a rule of thumb, if all the implementations of an interface are expected
+to share code, that interface is probably better suited for `aglib`, and it should be further broken
+down into its primitives, which can then be added to the Debugger API.
+
+Some examples of debugging primitives are memory reads, memory writes, memory map acquisition,
+symbol lookup, register reads and writes, and execution frames. These are all things that one can
+find in both the GDB and LLDB APIs.
+
+The entry point for the Debugger API is `pwndbg.dbg`, though most process-related methods are accessed
+through a `Process` object. Unless you really know what you're doing, you're going to want to use the
+objected yielded by `pwndbg.dbg.selected_inferior()` for this.
+
+## `aglib`
+
+Along with the Debugger API, there is also `aglib`, found under `pwndbg/aglib/`, in which lives
+functionality that is both too broad for a single command, and that can be shared between multiple
+debuggers. Things like QEMU handling, ELF and dynamic section parsing, operating system functionality,
+disassembly with capstone, heap analysis, and more, all belong in `aglib`.
+
+In order to facilitate the process of porting Pwndbg to the debugger-agnostic interfaces, and also
+because of its historical roots, `aglib` is intended to export the exact same functionality provided
+by `gdblib`, but on top of a debugger-agnostic foundation.
+
+If it helps, one may think of `aglib` like a `pwndbglib`. It takes the debugging primitives provided
+by the Debugger API and builds the more complex and interesting bits of functionality found in
+Pwndbg on top of them.
+
+## Mappings from GDB and LLDB to the Debugger API
+
+Here are some things one may want to do, along with how they can be achieved in the LLDB, GDB, and
+Pwndbg Debugger APIs.
+
+| Action | GDB/ | LLDB | Debugger API[^1] |
+| ------ | --- | ---- | ------------ |
+| Setting a breakpoint at an address | `gdb.Breakpoint("*<address>")` | `lldb.target.BreakpointCreateByAddress(<address>)` | `inf.break_at(BreakpointLocation(<address>))` |
+| Querying for the address of a symbol | `int(gdb.lookup_symbol(<name>).value().address)` | `lldb.target.FindSymbols(<name>).GetContextAtIndex(0).symbol.GetStartAddress().GetLoadAddress(lldb.target)` | `inf.symbol_address_from_name(<name>)` |
+| Setting a watchpoint at an address | `gdb.Breakpoint(f"(char[{<size>}])*{<address>}", gdb.BP_WATCHPOINT)` | `lldb.target.WatchAddress(<address>, <size>, ...)` | `inf.break_at(WatchpointLocation(<address>, <size>))` |
+
+[^1]: Many functions in the Debugger API are accessed through a `Process` object, which is usually
+obtained through `pwndbg.dbg.selected_inferior()`. These are abbreviated `inf` in the table.
+
+## Exception to use of Debugger-agnostic interfaces
+
+Some commands might not make any sense outside the context of a single debugger. For these commands,
+it is generally okay to talk to the debugger directly. However, they must be properly marked as
+debugger-specific and their loading must be properly gated off behind the correct debugger. They
+should ideally be placed in a separate location from the rest of the commands in `pwndbg/commands/`.
 
 # Annotations
 
@@ -321,14 +395,14 @@ We might think "why not just check if it's the next address - 0x555555556279 in 
 
 - We don't emulate through CALL instructions. This is because the function might be very long.
 - We resolve symbols during the enhancement stage for operand values.
-- The folder [`pwndbg/gdblib/disasm`](pwndbg/gdblib/disasm) contains the code for enhancement. It follows an object-oriented model, with `arch.py` implementing the parent class with shared functionality, and the per-architecture implementations are implemented as subclasses in their own files.
-- `pwndbg/gdblib/nearpc.py` is responsible for getting the list of enhanced PwndbgInstruction objects and converting them to the output seen in the 'disasm' view of the dashboard.
+- The folder [`pwndbg/aglib/disasm`](pwndbg/aglib/disasm) contains the code for enhancement. It follows an object-oriented model, with `arch.py` implementing the parent class with shared functionality, and the per-architecture implementations are implemented as subclasses in their own files.
+- `pwndbg/aglib/nearpc.py` is responsible for getting the list of enhanced PwndbgInstruction objects and converting them to the output seen in the 'disasm' view of the dashboard.
 
 ## Adding or fixing annotations
 
 We annotate on an instruction-by-instruction basis. Effectively, imagine a giant `switch` statement that selects the correct handler to create an annotation based on the specific instruction. Many instruction types can be grouped and annotated using the same logic, such as `load`, `store`, and `arithmetic` instructions.
 
-See [`pwndbg/gdblib/disasm/aarch64.py`](pwndbg/gdblib/disasm/aarch64.py) as an example. We define sets that group instructions using the unique Capstone ID for each instruction, and inside the constructor of `DisassemblyAssistant` we have a mapping of instructions to a specific handler. The `_set_annotation_string` function will match the instruction to the correct handler, which set the `instruction.annotation` field.
+See [`pwndbg/aglib/disasm/aarch64.py`](pwndbg/aglib/disasm/aarch64.py) as an example. We define sets that group instructions using the unique Capstone ID for each instruction, and inside the constructor of `DisassemblyAssistant` we have a mapping of instructions to a specific handler. The `_set_annotation_string` function will match the instruction to the correct handler, which set the `instruction.annotation` field.
 
 If there is a bug in an annotation, the first order of business is finding its annotation handler. To track down where we are handling the instruction, you can search for its Capstone constant. For example, the RISC-V store byte instruction, `sb`, is represented as the Capstone constant `RISCV_INS_SB`. Or, if you are looking for the handler for the AArch64 instruction SUB, you can search the disasm code for `_INS_SUB` to find where we reference the appropriate Capstone constant for the instruction and following the code to the function that ultimately sets the annotation.
 
@@ -385,7 +459,7 @@ The number of operands may not match the visual appearance. You might also check
 
 3. Check the state of the emulator.
 
-Go to [pwndbg/emu/emulator.py](pwndbg/emu/emulator.py) and uncomment the `DEBUG = -1` line. This will enable verbose debug printing. The emulator will print it's current `pc` at every step, and indicate important events, like memory mappings. Likewise, in [pwndbg/gdblib/disasm/arch.py](pwndbg/gdblib/disasm/arch.py) you can set `DEBUG_ENHANCEMENT = True` to print register accesses to verify they are sane values.
+Go to [pwndbg/emu/emulator.py](pwndbg/emu/emulator.py) and uncomment the `DEBUG = -1` line. This will enable verbose debug printing. The emulator will print it's current `pc` at every step, and indicate important events, like memory mappings. Likewise, in [pwndbg/aglib/disasm/arch.py](pwndbg/aglib/disasm/arch.py) you can set `DEBUG_ENHANCEMENT = True` to print register accesses to verify they are sane values.
 
 Potential bugs:
 - A register is 0 (may also be the source of a Unicorn segfault if used as a memory operand) - often means we are not copying the host processes register into the emulator. By default, we map register by name - if in pwndbg, it's called `rax`, then we find the UC constant named `U.x86_const.UC_X86_REG_RAX`. Sometimes, this default mapping doesn't work, sometimes do to differences in underscores (`FSBASE` vs `FS_BASE`). In these cases, we have to manually add the mapping.
