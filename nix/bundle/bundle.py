@@ -274,14 +274,14 @@ def copy_with_symlink_normal(src_file_path: Path, root_dir_src: Path, root_dst_d
         file_resolved = src_file_path.resolve()
         is_allowed_symlink = file_resolved.is_relative_to(root_dir_src)
 
-        if is_so and is_allowed_symlink:
-            # For .so / .dylib files, symlinks are only allowed within the same directory.
+        if is_so and is_allowed_symlink and sys.platform != 'darwin':
+            # For .so files, symlinks are only allowed within the same directory.
             # This is because $ORIGIN in the runpath cannot resolve symlinks.
             # This issue was specifically encountered with the file:
             # lib/python3.12/site-packages/lldb/_lldb.cpython-312-aarch64-linux-gnu.so -> ../../../liblldb.so.19.1.1
             # To avoid such issues, we check if the resolved file's parent directory
             # matches the parent directory of the source file.
-            if file_resolved.relative_to(root_dir_src).parent != src_file_path.parent:
+            if file_resolved.parent != src_file_path.parent:
                 is_allowed_symlink = False
 
         if is_allowed_symlink:
