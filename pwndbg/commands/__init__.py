@@ -19,6 +19,7 @@ from typing_extensions import ParamSpec
 import pwndbg.aglib.heap
 import pwndbg.aglib.proc
 import pwndbg.aglib.qemu
+import pwndbg.aglib.regs
 import pwndbg.exception
 from pwndbg.aglib.heap.ptmalloc import DebugSymsHeap
 from pwndbg.aglib.heap.ptmalloc import GlibcMemoryAllocator
@@ -31,7 +32,6 @@ from pwndbg.aglib.heap.ptmalloc import SymbolUnresolvableError
 # TODO: Replace these with uses of the Debugger API.
 if pwndbg.dbg.is_gdblib_available():
     import pwndbg.gdblib.kernel
-    import pwndbg.gdblib.regs
 
 log = logging.getLogger(__name__)
 
@@ -709,7 +709,6 @@ def load_commands() -> None:
         import pwndbg.commands.pcplist
         import pwndbg.commands.peda
         import pwndbg.commands.reload
-        import pwndbg.commands.rop
         import pwndbg.commands.ropper
         import pwndbg.commands.segments
         import pwndbg.commands.shell
@@ -758,6 +757,7 @@ def load_commands() -> None:
     import pwndbg.commands.radare2
     import pwndbg.commands.retaddr
     import pwndbg.commands.rizin
+    import pwndbg.commands.rop
     import pwndbg.commands.search
     import pwndbg.commands.sigreturn
     import pwndbg.commands.spray
