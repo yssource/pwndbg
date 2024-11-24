@@ -706,7 +706,6 @@ def load_commands() -> None:
         import pwndbg.commands.killthreads
         import pwndbg.commands.klookup
         import pwndbg.commands.kversion
-        import pwndbg.commands.onegadget
         import pwndbg.commands.pcplist
         import pwndbg.commands.peda
         import pwndbg.commands.reload
@@ -749,6 +748,7 @@ def load_commands() -> None:
     import pwndbg.commands.mprotect
     import pwndbg.commands.nearpc
     import pwndbg.commands.next
+    import pwndbg.commands.onegadget
     import pwndbg.commands.p2p
     import pwndbg.commands.patch
     import pwndbg.commands.pie
