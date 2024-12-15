@@ -59,8 +59,8 @@ from pwndbg.dbg.lldb.repl.io import get_io_driver
 from pwndbg.dbg.lldb.repl.proc import EventHandler
 from pwndbg.dbg.lldb.repl.proc import ProcessDriver
 from pwndbg.dbg.lldb.repl.readline import PROMPT
-from pwndbg.dbg.lldb.repl.readline import disable_readline
 from pwndbg.dbg.lldb.repl.readline import enable_readline
+from pwndbg.dbg.lldb.repl.readline import wrap_with_history
 from pwndbg.lib.tips import color_tip
 from pwndbg.lib.tips import get_tip_of_the_day
 
@@ -168,6 +168,7 @@ def show_greeting() -> None:
         print(colored_tip)
 
 
+@wrap_with_history
 def run(startup: List[str] | None = None, debug: bool = False) -> None:
     """
     Runs the Pwndbg REPL under LLDB. Optionally enters the commands given in
@@ -200,6 +201,8 @@ def run(startup: List[str] | None = None, debug: bool = False) -> None:
     signal.signal(signal.SIGINT, handle_sigint)
 
     show_greeting()
+    last_command = ""
+
     while True:
         # Execute the prompt hook and ask for input.
         dbg._fire_prompt_hook()
@@ -211,6 +214,11 @@ def run(startup: List[str] | None = None, debug: bool = False) -> None:
                 startup_i += 1
             else:
                 line = input(PROMPT)
+                # If the input is empty (i.e., 'Enter'), use the previous command
+                if line:
+                    last_command = line
+                else:
+                    line = last_command
         except EOFError:
             # Exit the REPL if there's nothing else to run.
             print()
@@ -400,29 +408,6 @@ def run(startup: List[str] | None = None, debug: bool = False) -> None:
                 )
             )
             break
-
-
-def make_pty() -> Tuple[str, int]:
-    """
-    We need to make a pseudo-terminal ourselves if we want the process to handle
-    naturally for the user. Returns a tuple with the filaname and the file
-    descriptor if successful.
-    """
-    import ctypes
-
-    libc = ctypes.CDLL("libc.so.6")
-    pty = libc.posix_openpt(2)
-    if pty <= 0:
-        return None
-
-    libc.ptsname.restype = ctypes.c_char_p
-    name = libc.ptsname(pty)
-
-    if libc.unlockpt(pty) != 0:
-        libc.close(pty)
-        return None
-
-    return name, pty
 
 
 def parse(args: List[str], parser: argparse.ArgumentParser, unsupported: List[str]) -> Any | None:
