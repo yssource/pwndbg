@@ -12,6 +12,7 @@ from typing import TypeVar
 
 from typing_extensions import ParamSpec
 
+import pwndbg.aglib.arch
 import pwndbg.aglib.memory
 import pwndbg.aglib.regs
 import pwndbg.aglib.symbol
@@ -649,6 +650,11 @@ def paging_enabled() -> bool:
         return x86_64Ops.paging_enabled()
     elif arch_name == "aarch64":
         return Aarch64Ops.paging_enabled()
+    elif arch_name == "rv64":
+        # https://starfivetech.com/uploads/u74_core_complex_manual_21G1.pdf
+        # page 41, satp.MODE, bits: 60,61,62,63
+        # "When satp.MODE=0x0, supervisor virtual addresses are equal to supervisor physical addresses"
+        return int(pwndbg.aglib.regs.satp) & (BIT(60) | BIT(61) | BIT(62) | BIT(63)) != 0
     else:
         raise NotImplementedError()
 
