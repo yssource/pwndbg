@@ -108,15 +108,7 @@ def get_known_maps() -> Tuple[pwndbg.lib.memory.Page, ...] | None:
     if is_corefile():
         return tuple(coredump_maps())
 
-    proc_maps = None
-    if pwndbg.aglib.qemu.is_qemu_usermode():
-        # On Qemu < 8.1 info proc maps are not supported. In that case we callback on proc_tid_maps
-        proc_maps = info_proc_maps()
-
-    if not proc_maps:
-        proc_maps = proc_tid_maps()
-
-    return proc_maps
+    return proc_tid_maps()
 
 
 @pwndbg.lib.cache.cache_until("start", "stop")
@@ -507,9 +499,9 @@ def proc_tid_maps() -> Tuple[pwndbg.lib.memory.Page, ...] | None:
         /proc/$tid/maps doesn't exist or when we debug a qemu-user target
     """
 
-    # If we debug remotely a qemu-user or qemu-system target,
+    # If we debug remotely a qemu-system target,
     # there is no point of hitting things further
-    if pwndbg.aglib.qemu.is_qemu():
+    if pwndbg.aglib.qemu.is_qemu_kernel():
         return None
 
     # Example /proc/$tid/maps
@@ -535,8 +527,9 @@ def proc_tid_maps() -> Tuple[pwndbg.lib.memory.Page, ...] | None:
 
     tid = pwndbg.aglib.proc.tid
     locations = [
+        # Linux distro
         f"/proc/{tid}/maps",
-        f"/proc/{tid}/map",
+        # Freebsd in some cases
         f"/usr/compat/linux/proc/{tid}/maps",
     ]
 
@@ -544,7 +537,7 @@ def proc_tid_maps() -> Tuple[pwndbg.lib.memory.Page, ...] | None:
         try:
             data = pwndbg.aglib.file.get(location).decode()
             break
-        except (OSError, gdb.error):
+        except OSError:
             continue
     else:
         return None

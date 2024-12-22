@@ -292,12 +292,6 @@ class MemoryMap:
         """
         raise NotImplementedError()
 
-    def has_reliable_perms(self) -> bool:
-        """
-        Returns whether the permissions in this memory map are reliable.
-        """
-        raise NotImplementedError()
-
     def ranges(self) -> Sequence[pwndbg.lib.memory.Page]:
         """
         Returns all ranges in this memory map.
@@ -409,7 +403,7 @@ class Process:
         """
         raise NotImplementedError()
 
-    def send_remote(self, packet: str) -> str:
+    def send_remote(self, packet: str) -> bytes:
         """
         Sends the given packet to the GDB remote debugging protocol server.
         Should only be called if `is_remote()` is true.

@@ -279,11 +279,8 @@ def vmmap(
         print(M.get(page.vaddr, text=display_text, prefix=backtrace_prefix))
 
     if vmmap.is_qemu():
-        print("\n[QEMU target detected - vmmap result might not be accurate; see `help vmmap`]")
-
-    if not vmmap.has_reliable_perms():
         print(
-            "\n[GDB <12.1 detected - vmmap cannot fetch permission information, defaulting to rwx]"
+            "\n[QEMU <8.1 target detected - vmmap result might not be accurate; see `help vmmap`]"
         )
 
 
