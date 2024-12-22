@@ -601,6 +601,7 @@ class TypeCode(Enum):
     INT = 6
     ENUM = 7
     FUNC = 8
+    BOOL = 9
 
 
 class TypeField:
